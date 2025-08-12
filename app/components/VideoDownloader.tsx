@@ -13,7 +13,10 @@ import {
   Video,
   FileText,
   Copy,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Flame,
+  Zap,
+  Timer
 } from 'lucide-react'
 
 interface VideoInfo {
@@ -30,6 +33,7 @@ interface VideoFormat {
   size: string
   url: string
   type: 'video' | 'audio'
+  downloadUrl?: string
 }
 
 export default function VideoDownloader() {
@@ -38,6 +42,8 @@ export default function VideoDownloader() {
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
   const [error, setError] = useState('')
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [downloadProgress, setDownloadProgress] = useState<{ [key: string]: number }>({})
+  const [downloadSpeed, setDownloadSpeed] = useState<{ [key: string]: string }>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   const detectPlatform = (url: string): string => {
@@ -61,52 +67,82 @@ export default function VideoDownloader() {
     setVideoInfo(null)
 
     try {
-      // Simulate API call - In real implementation, this would call your backend
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const platform = detectPlatform(url)
-      
-      // Mock video info - replace with actual API response
-      const mockVideoInfo: VideoInfo = {
-        title: "Sample Video Title - Amazing Content You'll Love",
-        thumbnail: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
-        duration: "3:24",
-        platform,
-        formats: [
-          { quality: '1080p', format: 'MP4', size: '25.4 MB', url: '#', type: 'video' },
-          { quality: '720p', format: 'MP4', size: '15.8 MB', url: '#', type: 'video' },
-          { quality: '480p', format: 'MP4', size: '8.2 MB', url: '#', type: 'video' },
-          { quality: 'Audio Only', format: 'MP3', size: '3.1 MB', url: '#', type: 'audio' },
-        ]
+      // Call your actual API endpoint
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch video information')
       }
-      
-      setVideoInfo(mockVideoInfo)
-    } catch (err) {
-      setError('Failed to fetch video information. Please check the URL and try again.')
+
+      const videoData = await response.json()
+      setVideoInfo(videoData)
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch video information. Please check the URL and try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  const simulateDownloadProgress = (formatKey: string) => {
+    const speeds = ['12.4 MB/s', '8.7 MB/s', '15.2 MB/s', '23.1 MB/s', '31.5 MB/s']
+    let progress = 0
+    
+    const interval = setInterval(() => {
+      progress += Math.random() * 15 + 5 // Random progress increment
+      
+      if (progress >= 100) {
+        progress = 100
+        clearInterval(interval)
+        setDownloading(null)
+        setDownloadProgress(prev => ({ ...prev, [formatKey]: 0 }))
+        setDownloadSpeed(prev => ({ ...prev, [formatKey]: '' }))
+      }
+      
+      setDownloadProgress(prev => ({ ...prev, [formatKey]: progress }))
+      setDownloadSpeed(prev => ({ 
+        ...prev, 
+        [formatKey]: speeds[Math.floor(Math.random() * speeds.length)]
+      }))
+    }, 200)
+  }
+
   const handleDownload = async (format: VideoFormat) => {
-    setDownloading(format.quality)
+    const formatKey = `${format.quality}-${format.format}`
+    setDownloading(formatKey)
     
     try {
-      // Simulate download process
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Start progress simulation
+      simulateDownloadProgress(formatKey)
       
-      // In real implementation, this would trigger the actual download
+      // For actual implementation, you would:
+      // 1. Get the real download URL from your backend
+      // 2. Create a blob from the video stream
+      // 3. Handle the actual file download
+      
+      // Simulated delay for demo purposes
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Create download link - In real implementation, this would be the processed video file
       const link = document.createElement('a')
-      link.href = format.url
+      link.href = format.downloadUrl || format.url
       link.download = `${videoInfo?.title || 'video'}.${format.format.toLowerCase()}`
+      link.target = '_blank'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       
     } catch (err) {
       setError('Download failed. Please try again.')
-    } finally {
       setDownloading(null)
+      setDownloadProgress(prev => ({ ...prev, [formatKey]: 0 }))
+      setDownloadSpeed(prev => ({ ...prev, [formatKey]: '' }))
     }
   }
 
@@ -133,172 +169,213 @@ export default function VideoDownloader() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="glass rounded-3xl p-8 shadow-2xl"
+        className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-red-200/50 relative overflow-hidden"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <LinkIcon className="w-6 h-6 text-gray-400" />
-            </div>
-            <input
-              ref={inputRef}
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="Paste video URL here (YouTube, Vimeo, Twitter, Facebook, etc.)"
-              className="w-full pl-12 pr-24 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-              required
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
-              {url && (
+        {/* Fire-themed background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-500 via-orange-500 to-yellow-500"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500 rounded-full filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-orange-500 rounded-full filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        </div>
+        
+        <div className="relative z-10">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <LinkIcon className="w-6 h-6 text-red-500" />
+              </div>
+              <input
+                ref={inputRef}
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="Paste video URL here (YouTube, Vimeo, Twitter, Facebook, etc.)"
+                className="w-full pl-12 pr-24 py-4 bg-gradient-to-r from-red-50 to-white border-2 border-red-200 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 shadow-lg"
+                required
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
+                {url && (
+                  <button
+                    type="button"
+                    onClick={clearInput}
+                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={clearInput}
-                  className="p-2 text-gray-400 hover:text-white transition-colors"
+                  onClick={pasteFromClipboard}
+                  className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  title="Paste from clipboard"
                 >
-                  ✕
+                  <Copy className="w-4 h-4" />
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={pasteFromClipboard}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-                title="Paste from clipboard"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
+              </div>
             </div>
-          </div>
-          
-          <motion.button
-            type="submit"
-            disabled={loading || !url.trim()}
-            className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <Loader2 className="w-6 h-6 animate-spin mr-3" />
-                Analyzing Video...
-              </div>
-            ) : (
-              <div className="flex items-center justify-center">
-                <Download className="w-6 h-6 mr-3" />
-                Get Download Links
-              </div>
-            )}
-          </motion.button>
-        </form>
-        
-        <AnimatePresence mode="wait">
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl flex items-center"
+            
+            <motion.button
+              type="submit"
+              disabled={loading || !url.trim()}
+              className="w-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 hover:from-red-700 hover:via-red-600 hover:to-orange-600 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none relative overflow-hidden"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <AlertCircle className="w-6 h-6 text-red-400 mr-3 flex-shrink-0" />
-              <p className="text-red-200">{error}</p>
-            </motion.div>
-          )}
-          
-          {videoInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mt-8 space-y-6"
-            >
-              <div className="glass rounded-2xl p-6">
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="relative group">
-                    <img
-                      src={videoInfo.thumbnail}
-                      alt={videoInfo.title}
-                      className="w-full md:w-48 h-32 object-cover rounded-xl"
-                    />
-                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play className="w-8 h-8 text-white" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 space-y-3">
-                    <h3 className="text-xl font-semibold text-white line-clamp-2">
-                      {videoInfo.title}
-                    </h3>
-                    <div className="flex items-center gap-4 text-gray-300">
-                      <span className="flex items-center">
-                        <Video className="w-4 h-4 mr-1" />
-                        {videoInfo.duration}
-                      </span>
-                      <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-md text-sm">
-                        {videoInfo.platform}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Fire animation background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-500 opacity-0 hover:opacity-20 transition-opacity duration-300"></div>
               
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-white flex items-center">
-                  <Download className="w-5 h-5 mr-2" />
-                  Download Options
-                </h4>
-                
-                <div className="grid gap-3">
-                  {videoInfo.formats.map((format, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="glass rounded-xl p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-300"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg">
-                          {format.type === 'video' ? (
-                            <Video className="w-5 h-5 text-blue-400" />
-                          ) : format.type === 'audio' ? (
-                            <Music className="w-5 h-5 text-green-400" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-gray-400" />
-                          )}
-                        </div>
-                        
-                        <div>
-                          <div className="flex items-center space-x-3">
-                            <span className="text-white font-medium">{format.quality}</span>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-gray-300">{format.format}</span>
-                            <span className="text-gray-400">•</span>
-                            <span className="text-gray-300">{format.size}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => handleDownload(format)}
-                        disabled={downloading === format.quality}
-                        className="btn-secondary min-w-[100px] disabled:opacity-50"
-                      >
-                        {downloading === format.quality ? (
-                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                        ) : (
-                          <span className="flex items-center">
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </span>
-                        )}
-                      </button>
-                    </motion.div>
-                  ))}
+              {loading ? (
+                <div className="flex items-center justify-center relative z-10">
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <Flame className="w-5 h-5 text-orange-300 animate-bounce" />
+                  </div>
+                  <span className="ml-3">Analyzing Video...</span>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              ) : (
+                <div className="flex items-center justify-center relative z-10">
+                  <Flame className="w-6 h-6 mr-3 animate-pulse" />
+                  Get Download Links
+                  <Zap className="w-5 h-5 ml-3 text-yellow-300" />
+                </div>
+              )}
+            </motion.button>
+          </form>
+          
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mt-6 p-4 bg-red-100 border border-red-300 rounded-xl flex items-center shadow-lg"
+              >
+                <AlertCircle className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" />
+                <p className="text-red-700">{error}</p>
+              </motion.div>
+            )}
+            
+            {videoInfo && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mt-8 space-y-6"
+              >
+                <div className="bg-gradient-to-r from-red-50 to-white rounded-2xl p-6 border border-red-200 shadow-lg">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="relative group">
+                      <img
+                        src={videoInfo.thumbnail}
+                        alt={videoInfo.title}
+                        className="w-full md:w-48 h-32 object-cover rounded-xl shadow-lg border border-red-200"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-red-900/40 to-transparent rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Play className="w-8 h-8 text-white drop-shadow-lg" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 space-y-3">
+                      <h3 className="text-xl font-bold text-gray-800 line-clamp-2">
+                        {videoInfo.title}
+                      </h3>
+                      <div className="flex items-center gap-4 text-gray-600">
+                        <span className="flex items-center bg-red-100 px-3 py-1 rounded-lg">
+                          <Timer className="w-4 h-4 mr-1 text-red-500" />
+                          {videoInfo.duration}
+                        </span>
+                        <span className="px-3 py-1 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg text-sm font-medium shadow">
+                          {videoInfo.platform}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                    <Flame className="w-5 h-5 mr-2 text-red-500" />
+                    Lightning Fast Downloads
+                  </h4>
+                  
+                  <div className="grid gap-3">
+                    {videoInfo.formats.map((format, index) => {
+                      const formatKey = `${format.quality}-${format.format}`
+                      const isDownloading = downloading === formatKey
+                      const progress = downloadProgress[formatKey] || 0
+                      const speed = downloadSpeed[formatKey] || ''
+                      
+                      return (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="bg-white rounded-xl p-4 flex items-center justify-between hover:bg-red-50 transition-all duration-300 border border-red-200 shadow-lg relative overflow-hidden"
+                        >
+                          {/* Progress bar background */}
+                          {isDownloading && (
+                            <div 
+                              className="absolute inset-0 bg-gradient-to-r from-red-100 to-orange-100 transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            />
+                          )}
+                          
+                          <div className="flex items-center space-x-4 relative z-10">
+                            <div className="p-3 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-lg">
+                              {format.type === 'video' ? (
+                                <Video className="w-5 h-5 text-white" />
+                              ) : format.type === 'audio' ? (
+                                <Music className="w-5 h-5 text-white" />
+                              ) : (
+                                <FileText className="w-5 h-5 text-white" />
+                              )}
+                            </div>
+                            
+                            <div>
+                              <div className="flex items-center space-x-3">
+                                <span className="text-gray-800 font-semibold">{format.quality}</span>
+                                <span className="text-gray-400">•</span>
+                                <span className="text-gray-600">{format.format}</span>
+                                <span className="text-gray-400">•</span>
+                                <span className="text-gray-600">{format.size}</span>
+                              </div>
+                              {isDownloading && speed && (
+                                <div className="flex items-center mt-1">
+                                  <Zap className="w-4 h-4 text-orange-500 mr-1 animate-pulse" />
+                                  <span className="text-sm text-orange-600 font-medium">{speed}</span>
+                                  <span className="text-sm text-gray-500 ml-2">({Math.round(progress)}%)</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleDownload(format)}
+                            disabled={isDownloading}
+                            className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 min-w-[120px] relative z-10"
+                          >
+                            {isDownloading ? (
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                <Flame className="w-4 h-4 text-orange-200 animate-bounce" />
+                              </div>
+                            ) : (
+                              <span className="flex items-center">
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </span>
+                            )}
+                          </button>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
     </div>
   )

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-// Changed import from 'ytdl-core' to '@distube/ytdl-core'
 import ytdl from '@distube/ytdl-core';
 import fetch from 'node-fetch';
-import * as cheerio from 'cheerio';
+// New import statement
+import { parse } from 'node-html-parser'; 
 
 export async function POST(request: NextRequest) {
     try {
@@ -150,11 +150,9 @@ async function downloadYouTubeVideo(url: string, quality: string, format: string
         if (quality === 'audio') {
             selectedFormat = ytdl.chooseFormat(info.formats, { filter: 'audioonly', quality: 'highestaudio' });
         } else {
-            // Note: the `filter` function you had was incorrect. It was comparing format.container to itself.
-            // A more robust way is to find the format that matches both quality and container.
             selectedFormat = ytdl.chooseFormat(info.formats, { 
                 filter: f => f.container === format && f.qualityLabel === quality,
-                quality: 'highestvideo' // Fallback to highest video quality if the exact match isn't found
+                quality: 'highestvideo'
             });
         }
 
@@ -236,10 +234,11 @@ async function getTwitterInfo(url: string) {
     try {
         const response = await fetch(url);
         const html = await response.text();
-        const $ = cheerio.load(html);
+        // Use the new parser
+        const root = parse(html);
         
-        const title = $('meta[property="og:title"]').attr('content') || 'Twitter Video';
-        const thumbnail = $('meta[property="og:image"]').attr('content') || '';
+        const title = root.querySelector('meta[property="og:title"]')?.getAttribute('content') || 'Twitter Video';
+        const thumbnail = root.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
         
         return {
             title,
@@ -270,12 +269,13 @@ async function getGenericInfo(url: string) {
     try {
         const response = await fetch(url);
         const html = await response.text();
-        const $ = cheerio.load(html);
+        // Use the new parser
+        const root = parse(html);
         
-        const title = $('meta[property="og:title"]').attr('content') || 
-                      $('title').text() || 
+        const title = root.querySelector('meta[property="og:title"]')?.getAttribute('content') || 
+                      root.querySelector('title')?.innerText || 
                       'Unknown Video';
-        const thumbnail = $('meta[property="og:image"]').attr('content') || '';
+        const thumbnail = root.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
         
         return {
             title,

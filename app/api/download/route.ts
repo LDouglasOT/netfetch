@@ -1,3 +1,8 @@
+
+// 'route.ts' file
+export const runtime = "nodejs";
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import ytdl from '@distube/ytdl-core';
 import fetch from 'node-fetch';

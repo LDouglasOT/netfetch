@@ -3,19 +3,33 @@ const nextConfig = {
   images: {
     domains: ['img.youtube.com', 'i.ytimg.com', 'i.vimeocdn.com'],
   },
-  transpilePackages: ['undici'],  
   webpack: (config, { isServer }) => {
-    // Add a rule to transpile 'undici' package
-    config.module.rules.push({
-      test: /\.js$/,
-      include: /node_modules\/undici/,
-      use: {
-        loader: 'babel-loader',
-        options: {
-          presets: ['next/babel'],
-        },
-      },
-    });
+    if (!isServer) {
+      // For client-side builds, ignore Node.js-specific modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        undici: false,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        url: false,
+        zlib: false,
+        http: false,
+        https: false,
+        assert: false,
+        os: false,
+        path: false,
+      };
+      
+      // Ignore these modules completely for client builds
+      config.externals = config.externals || [];
+      config.externals.push({
+        undici: 'undici',
+        '@distube/ytdl-core': '@distube/ytdl-core',
+      });
+    }
 
     return config;
   },
